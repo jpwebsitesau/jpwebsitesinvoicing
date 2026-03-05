@@ -1,0 +1,26 @@
+# .htaccess
+
+# Force HTTPS for secure billing
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Disable directory browsing
+Options -Indexes
+
+# Protect Config File from external reads
+<Files "config.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Protect Setup File from execution after initial run
+<Files "setup.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Ensure default routing targets the admin dashboard
+DirectoryIndex index.php
