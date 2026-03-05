@@ -1,7 +1,13 @@
 <?php
 // Strict error reporting for production safety
-error_reporting(E_ALL);
-ini_set('display_errors', 0); // Set to 1 only during initial debugging
+error_reporting(0); // Disabled entirely for production
+ini_set('display_errors', 0);
+ini_set('log_errors', 1); // Log errors directly to cPanel error_log
+
+// Secure Session Configuration
+ini_set('session.cookie_httponly', 1);
+ini_set('session.cookie_secure', 1);
+ini_set('session.use_strict_mode', 1);
 
 // Strict Timezone Localisation
 date_default_timezone_set('Australia/Perth');
@@ -24,7 +30,9 @@ try {
     $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4", DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+    $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, false); // Force native prepared statements
 } catch (PDOException $e) {
-    // Fail silently in production to prevent credential leakage on screen
+    // Log internally but fail silently on screen to prevent credential leakage
+    error_log("Database connection failed: " . $e->getMessage());
     die(json_encode(['error' => 'Database connection failed. Please verify config.php credentials within cPanel.']));
 }

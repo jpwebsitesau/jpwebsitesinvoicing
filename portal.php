@@ -34,15 +34,16 @@ $gstAmount = (float)$inv['gstAmount'];
 $totalAmount = $baseAmount + $gstAmount;
 
 // Formatters
-function cur($num) { return '$' . number_format($num, 2); }
+function cur($num) { return '$' . number_format((float)$num, 2); }
 function dte($str) { return $str ? date('d M Y', strtotime($str)) : ''; }
+function esc($str) { return htmlspecialchars($str ?? '', ENT_QUOTES, 'UTF-8'); }
 ?>
 <!DOCTYPE html>
 <html lang="en-AU">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $docTitle ?> #<?= $inv['id'] ?></title>
+    <title><?= esc($docTitle) ?> #<?= esc($inv['id']) ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .tab-content { display: none; }
@@ -60,37 +61,34 @@ function dte($str) { return $str ? date('d M Y', strtotime($str)) : ''; }
     
     <div class="max-w-4xl mx-auto bg-white p-8 md:p-12 rounded-xl shadow-xl border-t-8 border-indigo-600 print-shadow-none">
         
-        <!-- Header Section -->
         <div class="flex flex-col md:flex-row justify-between items-start border-b-2 border-gray-100 pb-8 mb-8">
             <div>
-                <h1 class="text-4xl font-extrabold text-slate-900"><?= htmlspecialchars($settings['bName']) ?></h1>
-                <p class="text-slate-500 mt-2 text-sm font-bold">ABN: <?= htmlspecialchars($settings['bAbn']) ?></p>
+                <h1 class="text-4xl font-extrabold text-slate-900"><?= esc($settings['bName']) ?></h1>
+                <p class="text-slate-500 mt-2 text-sm font-bold">ABN: <?= esc($settings['bAbn']) ?></p>
                 <?php if (!empty($settings['bAddr'])): ?>
-                    <p class="text-slate-500 text-sm mt-1 whitespace-pre-line"><?= htmlspecialchars($settings['bAddr']) ?></p>
+                    <p class="text-slate-500 text-sm mt-1 whitespace-pre-line"><?= esc($settings['bAddr']) ?></p>
                 <?php endif; ?>
-                <p class="text-slate-500 text-sm mt-1"><?= htmlspecialchars($settings['bEmail']) ?></p>
+                <p class="text-slate-500 text-sm mt-1"><?= esc($settings['bEmail']) ?></p>
             </div>
             <div class="text-left md:text-right mt-6 md:mt-0">
-                <h2 class="text-3xl font-black text-slate-300 tracking-widest uppercase"><?= $docTitle ?></h2>
-                <p class="text-slate-800 font-bold mt-2 text-lg">#<?= $inv['id'] ?></p>
-                <p class="text-slate-500 text-sm mt-1">Issue Date: <?= dte($inv['issueDate']) ?></p>
+                <h2 class="text-3xl font-black text-slate-300 tracking-widest uppercase"><?= esc($docTitle) ?></h2>
+                <p class="text-slate-800 font-bold mt-2 text-lg">#<?= esc($inv['id']) ?></p>
+                <p class="text-slate-500 text-sm mt-1">Issue Date: <?= esc(dte($inv['issueDate'])) ?></p>
                 <?php if($inv['docType'] !== 'quote' && $inv['dueDate']): ?>
-                    <p class="text-slate-500 text-sm">Due Date: <span class="font-bold text-slate-700"><?= dte($inv['dueDate']) ?></span></p>
+                    <p class="text-slate-500 text-sm">Due Date: <span class="font-bold text-slate-700"><?= esc(dte($inv['dueDate'])) ?></span></p>
                 <?php endif; ?>
             </div>
         </div>
 
-        <!-- Billed To Section -->
         <div class="mb-10">
             <h3 class="font-bold text-indigo-500 uppercase text-xs mb-2">Billed To</h3>
-            <p class="text-xl font-bold text-slate-900"><?= htmlspecialchars($inv['clientName']) ?></p>
-            <p class="text-slate-500 text-sm"><?= htmlspecialchars($inv['clientEmail']) ?></p>
+            <p class="text-xl font-bold text-slate-900"><?= esc($inv['clientName']) ?></p>
+            <p class="text-slate-500 text-sm"><?= esc($inv['clientEmail']) ?></p>
             <?php if (!empty($inv['clientAddress'])): ?>
-                <p class="text-slate-500 text-sm mt-1 whitespace-pre-line"><?= htmlspecialchars($inv['clientAddress']) ?></p>
+                <p class="text-slate-500 text-sm mt-1 whitespace-pre-line"><?= esc($inv['clientAddress']) ?></p>
             <?php endif; ?>
         </div>
 
-        <!-- Line Items Table -->
         <table class="w-full text-left border-collapse mb-8">
             <tr class="bg-gray-50 text-slate-500 text-xs uppercase tracking-wider border-b-2 border-slate-800">
                 <th class="p-4 font-bold w-1/2">Service Details</th>
@@ -101,24 +99,23 @@ function dte($str) { return $str ? date('d M Y', strtotime($str)) : ''; }
             <?php foreach($items as $item): ?>
             <tr class="border-b border-gray-100">
                 <td class="p-4 text-slate-800 font-semibold align-top">
-                    <?= htmlspecialchars($item['name']) ?>
+                    <?= esc($item['name']) ?>
                     <?php if (!empty($item['desc'])): ?>
-                        <br><span class="text-xs text-slate-500 font-normal mt-1 block whitespace-pre-line"><?= htmlspecialchars($item['desc']) ?></span>
+                        <br><span class="text-xs text-slate-500 font-normal mt-1 block whitespace-pre-line"><?= esc($item['desc']) ?></span>
                     <?php endif; ?>
                 </td>
-                <td class="p-4 text-center text-slate-600 align-top"><?= $item['qty'] ?></td>
+                <td class="p-4 text-center text-slate-600 align-top"><?= esc($item['qty']) ?></td>
                 <td class="p-4 text-right text-slate-600 align-top font-mono text-sm"><?= cur($item['price']) ?></td>
                 <td class="p-4 text-right font-mono text-slate-900 font-bold align-top"><?= cur($item['qty'] * $item['price']) ?></td>
             </tr>
             <?php endforeach; ?>
         </table>
 
-        <!-- Totals & Notes -->
         <div class="flex flex-col md:flex-row justify-between items-start mb-12 break-inside-avoid">
             <div class="w-full md:w-1/2 pr-0 md:pr-8 mb-6 md:mb-0">
                 <?php if(!empty($inv['notes'])): ?>
                     <h3 class="font-bold text-indigo-400 uppercase text-xs mb-2">Notes & Terms</h3>
-                    <p class="text-sm text-slate-600 whitespace-pre-line leading-relaxed"><?= htmlspecialchars($inv['notes']) ?></p>
+                    <p class="text-sm text-slate-600 whitespace-pre-line leading-relaxed"><?= esc($inv['notes']) ?></p>
                 <?php endif; ?>
             </div>
             <div class="w-full md:w-5/12 bg-gray-50 p-6 rounded-xl print-shadow-none border border-gray-200">
@@ -134,22 +131,20 @@ function dte($str) { return $str ? date('d M Y', strtotime($str)) : ''; }
                 <?php endif; ?>
                 <div class="flex justify-between text-2xl font-black text-indigo-900 pt-4 border-t border-gray-300">
                     <span>Total Due:</span>
-                    <span class="font-mono" id="js-total" data-aud="<?= $totalAmount ?>"><?= cur($totalAmount) ?></span>
+                    <span class="font-mono" id="js-total" data-aud="<?= esc($totalAmount) ?>"><?= cur($totalAmount) ?></span>
                 </div>
             </div>
         </div>
 
-        <!-- Payment Gateway Section -->
         <?php if ($inv['status'] === 'paid'): ?>
             <div class="bg-green-50 border border-green-200 text-green-800 p-8 rounded-2xl text-center shadow-inner">
                 <svg class="w-16 h-16 text-green-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 <h3 class="text-3xl font-black mb-2">PAID IN FULL</h3>
-                <p>Thank you for partnering with <?= htmlspecialchars($settings['bName']) ?>.</p>
+                <p>Thank you for partnering with <?= esc($settings['bName']) ?>.</p>
             </div>
         <?php else: ?>
             <div class="print-hide border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white break-inside-avoid">
                 
-                <!-- Tabs -->
                 <div class="flex bg-gray-50 border-b border-gray-200">
                     <button class="tab-btn active flex-1 py-4 text-sm font-bold text-gray-500 hover:bg-gray-100 transition focus:outline-none" onclick="openTab('tab-bank', this)">Bank Transfer</button>
                     <button class="tab-btn flex-1 py-4 text-sm font-bold text-gray-500 hover:bg-gray-100 transition focus:outline-none" onclick="openTab('tab-stripe', this)">Credit Card</button>
@@ -158,42 +153,40 @@ function dte($str) { return $str ? date('d M Y', strtotime($str)) : ''; }
                 
                 <div class="p-6 md:p-8">
                     
-                    <!-- Bank Tab (Default) -->
                     <div id="tab-bank" class="tab-content active">
                         <h4 class="font-bold text-slate-800 mb-4 text-lg">Electronic Funds Transfer</h4>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-sm">
                             <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
                                 <p class="text-xs text-indigo-500 uppercase font-sans font-bold mb-1">PayID (Instant)</p>
-                                <p class="text-slate-800 font-bold select-all text-lg"><?= htmlspecialchars($settings['payid']) ?></p>
+                                <p class="text-slate-800 font-bold select-all text-lg"><?= esc($settings['payid']) ?></p>
                             </div>
                             <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
                                 <p class="text-xs text-gray-500 uppercase font-sans font-bold mb-1">Account Name</p>
-                                <p class="text-slate-800 font-bold select-all text-lg"><?= htmlspecialchars($settings['bName']) ?></p>
+                                <p class="text-slate-800 font-bold select-all text-lg"><?= esc($settings['bName']) ?></p>
                             </div>
                             <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
                                 <p class="text-xs text-gray-500 uppercase font-sans font-bold mb-1">BSB</p>
-                                <p class="text-slate-800 font-bold select-all text-lg"><?= htmlspecialchars($settings['bsb']) ?></p>
+                                <p class="text-slate-800 font-bold select-all text-lg"><?= esc($settings['bsb']) ?></p>
                             </div>
                             <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
                                 <p class="text-xs text-gray-500 uppercase font-sans font-bold mb-1">Account Number</p>
-                                <p class="text-slate-800 font-bold select-all text-lg"><?= htmlspecialchars($settings['acc']) ?></p>
+                                <p class="text-slate-800 font-bold select-all text-lg"><?= esc($settings['acc']) ?></p>
                             </div>
                         </div>
                         <div class="mt-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
                             <p class="text-sm text-orange-800 font-bold flex items-center">
                                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                                Important: Please use <span class="font-mono bg-white px-2 py-1 rounded border border-orange-200 ml-2 select-all">INV-<?= $inv['id'] ?></span> as your payment reference.
+                                Important: Please use <span class="font-mono bg-white px-2 py-1 rounded border border-orange-200 ml-2 select-all">INV-<?= esc($inv['id']) ?></span> as your payment reference.
                             </p>
                         </div>
                     </div>
 
-                    <!-- Stripe Tab -->
                     <div id="tab-stripe" class="tab-content text-center py-6">
                         <svg class="w-12 h-12 text-indigo-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
                         <h4 class="font-bold text-slate-800 mb-2 text-xl">Pay securely via Stripe</h4>
                         <p class="text-sm text-gray-500 mb-8 max-w-md mx-auto">We accept Visa, Mastercard, Apple Pay, and Google Pay through our secure portal.</p>
                         <?php if(!empty($settings['stripeUrl'])): ?>
-                            <a href="<?= htmlspecialchars($settings['stripeUrl']) ?>" target="_blank" class="inline-block bg-indigo-600 text-white font-bold py-4 px-10 rounded-lg shadow-lg hover:bg-indigo-700 transition transform hover:-translate-y-1">
+                            <a href="<?= esc($settings['stripeUrl']) ?>" target="_blank" class="inline-block bg-indigo-600 text-white font-bold py-4 px-10 rounded-lg shadow-lg hover:bg-indigo-700 transition transform hover:-translate-y-1">
                                 Pay <?= cur($totalAmount) ?> Now
                             </a>
                         <?php else: ?>
@@ -201,7 +194,6 @@ function dte($str) { return $str ? date('d M Y', strtotime($str)) : ''; }
                         <?php endif; ?>
                     </div>
 
-                    <!-- Crypto Tab -->
                     <div id="tab-crypto" class="tab-content">
                         <h4 class="font-bold text-slate-800 mb-4 text-lg">Cryptocurrency Transfer</h4>
                         <p class="text-sm text-gray-500 mb-6">Rates calculated live via the Binance API. Please transfer the exact amount listed below.</p>
@@ -209,7 +201,7 @@ function dte($str) { return $str ? date('d M Y', strtotime($str)) : ''; }
                             <div class="bg-gray-50 p-5 rounded-lg border border-gray-200 flex flex-col md:flex-row justify-between items-center md:items-start gap-4">
                                 <div class="w-full md:w-2/3">
                                     <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Bitcoin (BTC) Wallet</p>
-                                    <p class="font-mono text-sm text-slate-700 select-all break-all bg-white p-2 rounded border"><?= htmlspecialchars($settings['btc']) ?></p>
+                                    <p class="font-mono text-sm text-slate-700 select-all break-all bg-white p-2 rounded border"><?= esc($settings['btc']) ?></p>
                                 </div>
                                 <div class="text-center md:text-right w-full md:w-1/3">
                                     <p class="text-2xl font-black text-orange-500 font-mono" id="js-btc-val">Loading...</p>
@@ -219,7 +211,7 @@ function dte($str) { return $str ? date('d M Y', strtotime($str)) : ''; }
                             <div class="bg-gray-50 p-5 rounded-lg border border-gray-200 flex flex-col md:flex-row justify-between items-center md:items-start gap-4">
                                 <div class="w-full md:w-2/3">
                                     <p class="text-xs text-gray-500 font-bold uppercase tracking-wider mb-1">Ethereum (ETH) Wallet</p>
-                                    <p class="font-mono text-sm text-slate-700 select-all break-all bg-white p-2 rounded border"><?= htmlspecialchars($settings['eth']) ?></p>
+                                    <p class="font-mono text-sm text-slate-700 select-all break-all bg-white p-2 rounded border"><?= esc($settings['eth']) ?></p>
                                 </div>
                                 <div class="text-center md:text-right w-full md:w-1/3">
                                     <p class="text-2xl font-black text-blue-500 font-mono" id="js-eth-val">Loading...</p>

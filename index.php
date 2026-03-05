@@ -58,19 +58,36 @@ if (isset($_GET['api'])) {
             if (isset($settings['gstRegistered']) && $settings['gstRegistered']) {
                 $gstAmount = $amount * 0.10;
             }
+
+            // Strict Sanitisation for Production
+            $sanitizedItems = [];
+            if (is_array($input['items'])) {
+                foreach ($input['items'] as $item) {
+                    $sanitizedItems[] = [
+                        'name' => htmlspecialchars($item['name'] ?? '', ENT_QUOTES, 'UTF-8'),
+                        'desc' => htmlspecialchars($item['desc'] ?? '', ENT_QUOTES, 'UTF-8'),
+                        'qty' => (float)($item['qty'] ?? 0),
+                        'price' => (float)($item['price'] ?? 0)
+                    ];
+                }
+            }
+            
+            $docType = in_array($input['docType'], ['invoice', 'quote']) ? $input['docType'] : 'invoice';
+            $issueDate = preg_replace('/[^0-9\-]/', '', $input['issueDate']);
+            $dueDate = preg_replace('/[^0-9\-]/', '', $input['dueDate']);
             
             $stmt = $pdo->prepare("INSERT INTO invoices (clientName, clientEmail, clientAddress, issueDate, dueDate, items, amount, gstAmount, notes, docType, hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([
-                htmlspecialchars($input['clientName']),
+                htmlspecialchars($input['clientName'], ENT_QUOTES, 'UTF-8'),
                 filter_var($input['clientEmail'], FILTER_SANITIZE_EMAIL),
-                htmlspecialchars($input['clientAddress']),
-                $input['issueDate'],
-                $input['dueDate'],
-                json_encode($input['items']),
+                htmlspecialchars($input['clientAddress'], ENT_QUOTES, 'UTF-8'),
+                $issueDate,
+                $dueDate,
+                json_encode($sanitizedItems),
                 $amount,
                 $gstAmount,
-                htmlspecialchars($input['notes']),
-                $input['docType'],
+                htmlspecialchars($input['notes'], ENT_QUOTES, 'UTF-8'),
+                $docType,
                 $hash
             ]);
             echo json_encode(['success' => true, 'id' => $pdo->lastInsertId(), 'hash' => $hash]);
@@ -86,12 +103,12 @@ if (isset($_GET['api'])) {
         if ($action === 'save_expense') {
             $stmt = $pdo->prepare("INSERT INTO expenses (date, cat, description, amount, includesGst, file) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([
-                $input['date'], 
-                htmlspecialchars($input['cat']), 
-                htmlspecialchars($input['desc']), 
+                preg_replace('/[^0-9\-]/', '', $input['date']), 
+                htmlspecialchars($input['cat'], ENT_QUOTES, 'UTF-8'), 
+                htmlspecialchars($input['desc'], ENT_QUOTES, 'UTF-8'), 
                 (float)$input['amount'], 
                 (int)$input['includesGst'],
-                htmlspecialchars($input['file'] ?? '')
+                htmlspecialchars($input['file'] ?? '', ENT_QUOTES, 'UTF-8')
             ]);
             echo json_encode(['success' => true]);
             exit;
@@ -183,12 +200,10 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
 </head>
 <body class="bg-gray-50 text-slate-800 font-sans min-h-screen">
 
-    <!-- GLOBAL TOAST NOTIFICATION -->
     <div id="toast" class="fixed top-5 right-5 bg-slate-800 text-white px-6 py-4 rounded-lg shadow-2xl hidden z-50 flex items-center border-l-4 border-indigo-400 print-hide">
         <span id="toast-msg" class="font-medium text-sm">Notification</span>
     </div>
 
-    <!-- LOGIN VIEW -->
     <div id="login-view" class="flex items-center justify-center min-h-screen p-4 bg-gradient-to-br from-indigo-50 to-slate-100 <?= $isLoggedIn ? 'hidden' : '' ?> print-hide">
         <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm border-t-4 border-indigo-600">
             <h1 class="text-3xl font-extrabold mb-2 text-center text-indigo-900 tracking-tight">JP Websites</h1>
@@ -212,7 +227,6 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
         </div>
     </div>
 
-    <!-- MAIN ADMIN SHELL -->
     <div id="app-shell" class="min-h-screen flex flex-col <?= $isLoggedIn ? '' : 'hidden' ?> print-hide">
         
         <nav class="bg-slate-900 text-white shadow-lg z-20">
@@ -237,7 +251,6 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
         <main class="flex-grow p-4 md:p-8">
             <div class="max-w-7xl mx-auto">
                 
-                <!-- VIEW: INVOICE LEDGER -->
                 <div id="view-ledger" class="app-view">
                     <div class="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                         <h2 class="text-3xl font-bold text-slate-800">Financial Ledger</h2>
@@ -264,7 +277,6 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
                     </div>
                 </div>
 
-                <!-- VIEW: MRR (RETAINERS) -->
                 <div id="view-mrr" class="app-view hidden">
                     <h2 class="text-3xl font-bold text-slate-800 mb-8">Retainer Engine</h2>
                     <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden p-12 text-center text-gray-500">
@@ -273,13 +285,20 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
                     </div>
                 </div>
 
-                <!-- VIEW: P&L / ATO BAS HELPER -->
                 <div id="view-pnl" class="app-view hidden">
                     <div class="flex justify-between items-center mb-2">
                         <h2 class="text-3xl font-bold text-slate-800">ATO Tax & P&L Dashboard</h2>
-                        <button onclick="prepareEOFYPrint()" class="bg-slate-800 text-white font-bold py-2 px-4 rounded shadow hover:bg-slate-900 transition text-sm">Export Tax PDF</button>
+                        <div class="flex gap-2">
+                            <select id="fy-filter" onchange="renderPnl()" class="border border-slate-300 rounded shadow-sm text-sm font-bold bg-white text-slate-700 px-3 py-2 focus:ring-2 focus:ring-slate-500 outline-none cursor-pointer">
+                                <option value="all">All Financial Years</option>
+                                <option value="2026">FY 2025/2026</option>
+                                <option value="2025">FY 2024/2025</option>
+                                <option value="2024">FY 2023/2024</option>
+                            </select>
+                            <button onclick="prepareEOFYPrint()" class="bg-slate-800 text-white font-bold py-2 px-4 rounded shadow hover:bg-slate-900 transition text-sm">Export Tax PDF</button>
+                        </div>
                     </div>
-                    <p class="text-slate-500 mb-8 text-sm">Data formatted for Perth, WA Business Activity Statements (BAS).</p>
+                    <p class="text-slate-500 mb-8 text-sm">Data formatted for precise Perth, WA Business Activity Statements (BAS) compliance.</p>
                     
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
@@ -327,7 +346,6 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
                     </div>
                 </div>
 
-                <!-- VIEW: SETTINGS -->
                 <div id="view-settings" class="app-view hidden">
                     <h2 class="text-3xl font-bold text-slate-800 mb-6">System Configuration</h2>
                     <form onsubmit="handleSaveSettings(event)" class="space-y-6">
@@ -392,7 +410,6 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
         </main>
     </div>
 
-    <!-- INVOICE MODAL -->
     <div id="invoice-modal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900 bg-opacity-75 hidden backdrop-blur-sm print-hide">
         <div class="min-h-screen flex items-center justify-center p-4">
             <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden">
@@ -432,16 +449,20 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
         </div>
     </div>
 
-    <!-- EOFY TEMPLATE -->
     <div id="eofy-print-view" class="print-only max-w-4xl mx-auto p-8 font-sans">
-        <div class="border-b-2 border-gray-800 pb-4 mb-8">
-            <h1 class="text-3xl font-black text-gray-900">End of Financial Year (EOFY) Report</h1>
-            <p class="text-sm font-bold text-gray-500 mt-1" id="eofy-bname">JP Websites</p>
+        <div class="border-b-2 border-gray-800 pb-4 mb-8 flex justify-between items-end">
+            <div>
+                <h1 class="text-3xl font-black text-gray-900">End of Financial Year Report</h1>
+                <p class="text-sm font-bold text-gray-500 mt-1" id="eofy-bname">JP Websites</p>
+            </div>
+            <div class="text-right">
+                <p class="text-sm font-bold text-slate-600" id="eofy-period">All Records</p>
+            </div>
         </div>
         <div class="flex justify-between mb-8">
-            <div class="w-1/3"><p class="text-xs uppercase font-bold border-b pb-1 mb-2">Revenue</p><p class="text-2xl font-bold" id="eofy-rev">$0.00</p></div>
+            <div class="w-1/3"><p class="text-xs uppercase font-bold border-b pb-1 mb-2">Revenue (Inc GST)</p><p class="text-2xl font-bold" id="eofy-rev">$0.00</p></div>
             <div class="w-1/3"><p class="text-xs uppercase font-bold border-b pb-1 mb-2">Expenses</p><p class="text-2xl font-bold" id="eofy-exp">$0.00</p></div>
-            <div class="w-1/3 text-right"><p class="text-xs uppercase font-bold border-b pb-1 mb-2">Profit</p><p class="text-2xl font-black" id="eofy-prof">$0.00</p></div>
+            <div class="w-1/3 text-right"><p class="text-xs uppercase font-bold border-b pb-1 mb-2">Operating Profit</p><p class="text-2xl font-black" id="eofy-prof">$0.00</p></div>
         </div>
         <h3 class="font-bold mb-2 border-b pb-1">Expense Ledger</h3>
         <table class="w-full text-left text-sm border-collapse"><tbody id="eofy-table-body"></tbody></table>
@@ -458,6 +479,14 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
             document.getElementById('toast-msg').innerText = msg;
             t.classList.remove('hidden'); t.classList.add('toast-enter');
             setTimeout(() => { t.classList.add('hidden'); t.classList.remove('toast-enter'); }, 3000);
+        }
+
+        function getFinancialYear(dateString) {
+            if (!dateString) return null;
+            const d = new Date(dateString);
+            const year = d.getFullYear();
+            const month = d.getMonth() + 1;
+            return month >= 7 ? year + 1 : year;
         }
 
         async function api(action, payload = {}) {
@@ -491,7 +520,7 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
         }
 
         function openInvoiceModal() {
-            document.getElementById('create-form').reset();
+            document.getElementById('create-form')?.reset();
             document.getElementById('f-issue-date').value = todayStr;
             document.getElementById('line-items-body').innerHTML = ''; addLineItem();
             document.getElementById('invoice-modal').classList.remove('hidden');
@@ -537,7 +566,7 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
             const payload = {
                 clientName: document.getElementById('f-client-name').value, clientEmail: document.getElementById('f-client-email').value,
                 clientAddress: '', issueDate: document.getElementById('f-issue-date').value, dueDate: document.getElementById('f-due-date').value,
-                items: items, amount: amt, notes: document.getElementById('f-notes').value, docType: document.getElementById('f-doc-type').value
+                items: items, amount: amt, notes: document.getElementById('f-notes')?.value || '', docType: document.getElementById('f-doc-type').value
             };
             const res = await api('save_invoice', payload);
             if(res && res.success) { closeInvoiceModal(); await initApp(); showToast("Document drafted."); }
@@ -577,9 +606,15 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
         }
 
         function renderPnl() {
+            const fySelect = document.getElementById('fy-filter');
+            const selectedFY = fySelect ? fySelect.value : 'all';
+
             let salesExGst = 0; let gstCol = 0; let expTotal = 0; let gstPaid = 0; let h = ''; let eh = '';
             
             appState.invoices.forEach(i => {
+                const invFY = getFinancialYear(i.issueDate);
+                if (selectedFY !== 'all' && invFY != selectedFY) return;
+
                 if(i.status === 'paid') {
                     salesExGst += parseFloat(i.amount);
                     gstCol += parseFloat(i.gstAmount);
@@ -587,6 +622,9 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
             });
 
             appState.expenses.forEach(ex => {
+                const exFY = getFinancialYear(ex.date);
+                if (selectedFY !== 'all' && exFY != selectedFY) return;
+
                 let amount = parseFloat(ex.amount);
                 expTotal += amount;
                 if(ex.includesGst == 1) { gstPaid += (amount / 11); }
@@ -594,7 +632,7 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
                 eh += `<tr class="border-b"><td class="p-2">${formatDate(ex.date)}</td><td class="p-2">${ex.cat}</td><td class="p-2">${ex.description}</td><td class="p-2 text-right">${formatCurrency(amount)}</td></tr>`;
             });
             
-            document.getElementById('expenses-body').innerHTML = h || '<tr><td colspan="4" class="text-center p-8 text-gray-500">No expenses logged.</td></tr>';
+            document.getElementById('expenses-body').innerHTML = h || '<tr><td colspan="4" class="text-center p-8 text-gray-500">No expenses logged for this period.</td></tr>';
             document.getElementById('eofy-table-body').innerHTML = eh;
             
             document.getElementById('bas-sales').innerText = formatCurrency(salesExGst);
@@ -606,6 +644,9 @@ $isLoggedIn = isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'
             document.getElementById('eofy-exp').innerText = formatCurrency(expTotal);
             document.getElementById('eofy-prof').innerText = formatCurrency((salesExGst + gstCol) - expTotal);
             document.getElementById('eofy-bname').innerText = appState.settings.bName || 'JP Websites';
+            
+            const periodText = selectedFY === 'all' ? 'All Records' : `Financial Year Ending June 30, ${selectedFY}`;
+            document.getElementById('eofy-period').innerText = periodText;
         }
 
         async function handleAddExpense(e) {

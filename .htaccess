@@ -7,20 +7,22 @@
     RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 </IfModule>
 
+# Apply strict security headers for production safety
+<IfModule mod_headers.c>
+    Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
 # Disable directory browsing
 Options -Indexes
 
-# Protect Config File from external reads
-<Files "config.php">
-    Order Allow,Deny
-    Deny from all
-</Files>
-
-# Protect Setup File from execution after initial run
-<Files "setup.php">
-    Order Allow,Deny
-    Deny from all
-</Files>
+# Protect sensitive core files from external reads
+<FilesMatch "^(config\.php|setup\.php|\.env|\.git)">
+    Require all denied
+</FilesMatch>
 
 # Ensure default routing targets the admin dashboard
 DirectoryIndex index.php

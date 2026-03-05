@@ -53,7 +53,7 @@ try {
         payload JSON NOT NULL
     )");
 
-    // Seed default Perth-based Web Design settings if empty
+    // Seed default Perth-based Sole Trader template if empty
     $stmt = $pdo->query("SELECT COUNT(*) FROM settings");
     if ($stmt->fetchColumn() == 0) {
         $defaultSettings = json_encode([
